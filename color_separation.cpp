@@ -1,7 +1,6 @@
 #include "highgui.h"
 #include <cv.h>
-
-void separation(IplImage *src, IplImage *dst){
+void separation2(IplImage *src, IplImage *dst){
   //陣列方式宣告
 	//unsigned char** R = new unsigned char *[src->height];	
 	//unsigned char** G = new unsigned char *[src->height];
@@ -33,30 +32,43 @@ void separation(IplImage *src, IplImage *dst){
 		}
 	}
 //RGB矩陣測試
-	//for( int i=0 ; i<src->height ; i++ ){
-	//	for(int j=0 ; j<src->width ; j++){
-	//		unsigned char temp=B->imageData[i*B->width+j];
-	//		int t = temp;
-	//		std::cout<<t<<std::endl; 
-	//	}
-	//}
-	for( int i=0 ; i<dst->height ; i++ ){
-		for( int j=0 ; j< dst->width ; j++ ){
+	for( int i=0 ; i<src->height ; i++ ){
+		for(int j=0 ; j<src->width ; j++){
 			unsigned char temp=B->imageData[i*B->width+j];
 			unsigned char temp1=G->imageData[i*G->width+j];
 			unsigned char temp2=R->imageData[i*R->width+j];
-			int t=temp;
+			int t = temp;
 			int t1=temp1;
 			int t2=temp2;
-			if ( temp == 0 && temp1 == 255 && temp2 == 255  ){
-				for(int k=0 ; k<3 ; k++)
-				dst->imageData[ i*dst->widthStep+j*3+k ] = src->imageData[ i*src->widthStep+j*3+k ];
+			
+			//std::cout<<t<<std::endl; 
+		}
+	}
+	for( int i=0 ; i<dst->height ; i++ ){
+		for( int j=0 ; j< dst->width ; j++ ){
+			for(int k=0 ; k<3 ; k++){
+				unsigned char temp=B->imageData[i*B->width+j];
+				unsigned char temp1=G->imageData[i*G->width+j];
+				unsigned char temp2=R->imageData[i*R->width+j];
+				int t=temp;
+				int t1=temp1;
+				int t2=temp2;
+				if(t>128)
+				t=255;
+				else
+					t=0;
+				if(t1>128)
+					t1=255;
+				else
+					t1=0;
+				if(t2>128)
+					t2=255;
+				else
+					t2=0;
+				if ( t == 255 && t1 == 255  && t2 == 255  ){
+					dst->imageData[ i*dst->widthStep+j*3+k ] = src->imageData[ i*src->widthStep+j*3+k ];
+				}
 			}
-			else if( temp + temp1 + temp2 >=255 ){ 
-				for( int k=0 ; k<3 ;k++)
-				dst->imageData[ i*dst->widthStep+j*3+k ] = 255;
-			}
-
 		}
 	}
 }
@@ -64,14 +76,14 @@ int main()
 {
 IplImage *Img; 
 IplImage *dst;
-Img = cvLoadImage("rgb2.bmp",1); 
+Img = cvLoadImage("123.jpg",1); 
 
 int i, j, IW, IL;
 IW = Img->height;
 IL = Img->width;
 dst= cvCreateImage( cvSize(IL ,IW) , 8, 3 );
 
-separation( Img , dst);
+separation2( Img , dst);
 
 //顯示影像
 cvNamedWindow("Picture",1); 
