@@ -48,12 +48,10 @@ void separation(IplImage *src, IplImage *dst){
 			int t=temp;
 			int t1=temp1;
 			int t2=temp2;
-			if ( temp == 0 && temp1 == 255 && temp2 == 255  ){
-				for(int k=0 ; k<3 ; k++)
+			for(int k=0 ; k<3 ; k++){
+			if ( temp == 0 && temp1 == 255 && temp2 == 255  )
 				dst->imageData[ i*dst->widthStep+j*3+k ] = src->imageData[ i*src->widthStep+j*3+k ];
-			}
-			else if( temp + temp1 + temp2 >=255 ){ 
-				for( int k=0 ; k<3 ;k++)
+			else if( temp + temp1 + temp2 >=255 )
 				dst->imageData[ i*dst->widthStep+j*3+k ] = 255;
 			}
 
