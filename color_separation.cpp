@@ -1,41 +1,8 @@
 #include "highgui.h"
 #include <cv.h>
-void separation1(IplImage *src, IplImage *dst){
 
-	for (int i=0; i<src->height; i++){
-		for(int j=0; j<src->widthStep ; j++){
-
-			if ( j%3==1 ){			
-				unsigned char temp1=src->imageData[i*src->widthStep+j+1];
-				unsigned char temp2=src->imageData[i*src->widthStep+j-1];
-				int t1=temp1;
-				int t2=temp2;
-				if ( temp1+temp2==255 )
-					dst->imageData[i*dst->widthStep+j]=255;
-				else
-					dst->imageData[i*dst->widthStep+j]=src->imageData[i*src->widthStep+j];
-			}
-			else if (j%3==2){
-				unsigned char temp1=src->imageData[i*src->widthStep+j];
-				unsigned char temp2=src->imageData[i*src->widthStep+j-1];
-				int t1=temp1;
-				int t2=temp2;
-				if ( temp1+temp2==255 )
-					dst->imageData[i*dst->widthStep+j]=255;
-				else
-					dst->imageData[i*dst->widthStep+j]=src->imageData[i*src->widthStep+j];
-			}
-			else 
-				if ( src->imageData[i*src->widthStep+j]==0 )
-					dst->imageData[i*dst->widthStep+j]=255;
-				else
-					dst->imageData[i*dst->widthStep+j]=src->imageData[i*src->widthStep+j];
-		}
-}
-
-}
-void separation2(IplImage *src, IplImage *dst){
-  //°}¦C¤è¦¡«Å§i
+void separation(IplImage *src, IplImage *dst){
+  //é™£åˆ—æ–¹å¼å®£å‘Š
 	//unsigned char** R = new unsigned char *[src->height];	
 	//unsigned char** G = new unsigned char *[src->height];
 	//unsigned char** B = new unsigned char *[src->height];
@@ -44,7 +11,7 @@ void separation2(IplImage *src, IplImage *dst){
 	//	G[i] = new unsigned char[src->width];
 	//	B[i] = new unsigned char[src->width];
 	//}
-//«ü¼Ğ¤è¦¡«Å§i
+//æŒ‡æ¨™æ–¹å¼å®£å‘Š
 	IplImage *R = cvCreateImage(cvGetSize(src),8,1);
 	IplImage *G = cvCreateImage(cvGetSize(src),8,1);
 	IplImage *B = cvCreateImage(cvGetSize(src),8,1);
@@ -65,7 +32,7 @@ void separation2(IplImage *src, IplImage *dst){
 			}
 		}
 	}
-//RGB¯x°}´ú¸Õ
+//RGBçŸ©é™£æ¸¬è©¦
 	//for( int i=0 ; i<src->height ; i++ ){
 	//	for(int j=0 ; j<src->width ; j++){
 	//		unsigned char temp=B->imageData[i*B->width+j];
@@ -104,13 +71,13 @@ IW = Img->height;
 IL = Img->width;
 dst= cvCreateImage( cvSize(IL ,IW) , 8, 3 );
 
-separation2( Img , dst);
+separation( Img , dst);
 
-//Åã¥Ü¼v¹³
+//é¡¯ç¤ºå½±åƒ
 cvNamedWindow("Picture",1); 
 cvShowImage("Picture",Img);
-cvNamedWindow("Picture1",1); //«Ø¥ßµøµ¡(µøµ¡¦WºÙ,°Ñ¼Æ) 
-cvShowImage("Picture1",dst); //Åã¥Ü¼v¹³(µøµ¡¦WºÙ,¼v¹³ÀÉ®×) 
-cvWaitKey(0); //«ö¤U¥ô·N«öÁä¥i±N¹Ï¤ùÃö³¬
+cvNamedWindow("Picture1",1); //å»ºç«‹è¦–çª—(è¦–çª—åç¨±,åƒæ•¸) 
+cvShowImage("Picture1",dst); //é¡¯ç¤ºå½±åƒ(è¦–çª—åç¨±,å½±åƒæª”æ¡ˆ) 
+cvWaitKey(0); //æŒ‰ä¸‹ä»»æ„æŒ‰éµå¯å°‡åœ–ç‰‡é—œé–‰
 return 0;
 }
