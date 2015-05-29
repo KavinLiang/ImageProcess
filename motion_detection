@@ -1,199 +1,453 @@
-#include "highgui.h"
-#include <cv.h>
-
-void Float(IplImage *dst, double *x , double *y , double *z )
-{   
-    IplImage *image;
-    int edgeThresh = 50;
-    int IW1;
-    int IL1;
-    int vertex1X1=0;
-    int vertex1Y1=0;
-    int a=0;
-    int A1=0;
-    int vertex1X2=0;
-    int vertex1Y2=0;
-    int vertex1X3=0;
-    int vertex1Y3=0;
-    double center1X=0;
-    double center1Y=0;
-    double realobjectdistance = 60;
-    double imagedistance = 0;
-    double realobjectdistance1=0;
-    image = cvCreateImage(cvSize(dst->width,dst->height),IPL_DEPTH_8U,1);
-	cvDilate(dst,image,0,1);
-	cvErode(image,image,0,1);
-    cvThreshold(image,image,200,255,CV_THRESH_BINARY);
-    cvCanny(image, image, edgeThresh, edgeThresh*3, 3);
-	
-
-	IW1=image->height;
-	IL1=image->width;
-	
-
-    unsigned char **firstpicture = new unsigned char *[IW1];
-	
-    
-	for(int i = 0 ; i< IW1 ; i++)
-		firstpicture[i] = new unsigned char [IL1];
-	for(int i = 0 ; i< IW1 ; i++)
-	  for(int j = 0 ; j < IL1 ; j++)
-		firstpicture[i][j] = (unsigned char) image->imageData[i*IL1+j];//讀取第一張圖片的陣列
+#include <iostream>
+#include "stdafx.h"
+#include "cv.h"
+#include <highgui\highgui.hpp>
+#include <opencv2/core/core.hpp>
+#include "IMAGE.h"
+#include <math.h>
 
 
-	for(int i = 0 ; i< IW1 ; i++)
-		for(int j = 0 ; j < IL1 ; j++){
-			if((unsigned int)firstpicture[i][j] == 255 && a == 0){
-				vertex1X1=j;
-				vertex1Y1=i;
-				a=1;
-			}
-		}
-	std::cout << "第一個頂點:" << vertex1X1 << "," << vertex1Y1 << "\n";
-	for(int i = IW1-1 ; i > 0 ; i--)
-		for(int j = 0 ; j < IL1 ; j++){ 
-			if((unsigned int)firstpicture[i][j] == 255 && a == 1){
-				vertex1X2=j;
-				vertex1Y2=i;
-				a=2;
-			}
-		}
-	std::cout << "第二個頂點:" << vertex1X2 << "," << vertex1Y2 << "\n";
-	for(int j = IL1-1 ; j > 0 ; j--)
-		for(int i = IW1-1 ; i > 0 ; i--){
-			if((unsigned int)firstpicture[i][j] == 255 && a == 2){
-				vertex1X3=j;
-				vertex1Y3=i;
-				a=3;
-			}
 
-		}
-        double sidelength1 =  sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
-	A1 = sqrt(double(3))*pow(sidelength1,2)/4;
-	std::cout << "第三個頂點:" << vertex1X3 << "," << vertex1Y3 << "\n";
-	center1X = (vertex1X1+vertex1X2+vertex1X3)/3;
-	center1Y = (vertex1Y1+vertex1Y2+vertex1Y3)/3;
-	std::cout << "重心:" << center1X << "," << center1Y << "\n"; 
-	std::cout << "面積:" << A1 << std::endl;
-        imagedistance=realobjectdistance*sidelength1/12;	
-	std::cout << "\n影像與光感距離: " << imagedistance;
-        *x=center1X;
-        *y=center1Y;
-        *z=0;
-		delete firstpicture;
-}
-void separation2(IplImage *src, IplImage *dst, int a){
-  //陣列方式宣告
-	//unsigned char** R = new unsigned char *[src->height];	
-	//unsigned char** G = new unsigned char *[src->height];
-	//unsigned char** B = new unsigned char *[src->height];
-	//for( int i = 0 ; i < src->height ; i++ ){
-	//	R[i] = new unsigned char[src->width];
-	//	G[i] = new unsigned char[src->width];
-	//	B[i] = new unsigned char[src->width];
-	//}
-//指標方式宣告
-	IplImage *R = cvCreateImage(cvGetSize(src),8,1);
-	IplImage *G = cvCreateImage(cvGetSize(src),8,1);
-	IplImage *B = cvCreateImage(cvGetSize(src),8,1);
-	for( int i=0 ; i<src->height ; i++ ){
-		int countR=0,countG=0,countB=0;
-		for ( int j=0; j<src->widthStep ; j++ ){
-			if	( j%3==2 ){
-				R->imageData[i*R->width+countR]= src->imageData[i*src->widthStep+j];
-				countR++;
-			}
-			if ( j%3==1 ){
-				G->imageData[i*G->width+countG]= src->imageData[i*src->widthStep+j];
-				countG++;
-			}
-			if ( j%3==0 ){
-				B->imageData[i*B->width+countB]= src->imageData[i*src->widthStep+j];
-				countB++;
-			}
-		}
-	}
-////RGB矩陣測試
-//	for( int i=0 ; i<src->height ; i++ ){
-//		for(int j=0 ; j<src->width ; j++){
-//			unsigned char temp=B->imageData[i*B->width+j];
-//			unsigned char temp1=G->imageData[i*G->width+j];
-//			unsigned char temp2=R->imageData[i*R->width+j];
-//			int t = temp;
-//			int t1=temp1;
-//			int t2=temp2;
-//			
-//			//std::cout<<t<<std::endl; 
-//		}
-//	}
-	for( int i=0 ; i<dst->height ; i++ ){
-		for( int j=0 ; j< dst->width ; j++ ){
-				unsigned char temp=B->imageData[i*B->width+j];
-				unsigned char temp1=G->imageData[i*G->width+j];
-				unsigned char temp2=R->imageData[i*R->width+j];
-				int t=temp;
-				int t1=temp1;
-				int t2=temp2;
-				if(t>128)
-					t=255;
-				else
-					t=0;
-				if(t1>128)
-					t1=255;
-				else
-					t1=0;
-				if(t2>128)
-					t2=255;
-				else
-					t2=0;
-				if ( t == 0 && t1 == 0  && t2 == 255 && a==1){
-					dst->imageData[ i*dst->width+j ] =255;
-				}
-				else if(a==1)
-					dst->imageData[ i*dst->width+j ]=0;
-				if ( t == 255 && t1 == 0  && t2 == 0 && a==2 ){
-					dst->imageData[ i*dst->width+j ] =255;
-				}
-				else if(a==2)
-					dst->imageData[ i*dst->width+j ]=0;
-				if ( t == 0 && t1 == 255  && t2 == 0 && a==3 ){
-					dst->imageData[ i*dst->width+j ] =255;
-				}
-				else if(a==3)
-					dst->imageData[ i*dst->width+j ]=0;
-				if ( t == 255 && t1 == 255  && t2 == 255 && a==4 ){
-					dst->imageData[ i*dst->width+j ] =255;
-				}
-				else if(a==4)
-					dst->imageData[ i*dst->width+j ]=0;
-		}
-	}
-}
+int edgeThresh = 50;
+using namespace cv;
+
+
+using namespace std;
+void Float(IplImage *, IplImage *, double *, double *, double *);
+void separation2(IplImage *, IplImage *, int );
+void judeg(IplImage*,double *,int);
 int main()
 {
-IplImage *Img; 
-IplImage *dst;
 
-Img = cvLoadImage("123.jpg",1); 
+	IplImage *Img;
+	IplImage *Img1;
+	IplImage *dst;
+	IplImage *dst1;
+	Img = cvLoadImage("123.jpg", 1);
+	Img1 = cvLoadImage("456.jpg", 1);
+	double x0 = 0;
+	double y0 = 0;
+	double z0 = 0;
+	double sidelength1[4] = { 0 };
+	double sidelength2[4] = { 0 };
 
-int i, j, IW, IL;
-double	*x,*y,*z;
-int a=1;
-IW = Img->height;
-IL = Img->width;
-dst= cvCreateImage( cvSize(IL ,IW) , 8, 1 );
-for(i=0;i<4;i++){
-separation2( Img , dst, a);
-Float( dst, x, y, z);
-a++;
+	int i, j, IW, IL;
+	double	*x=&x0;
+	double	*y=&y0;
+	double	*z=&z0;
+	
+	int a = 1; 
+	double b = 0;
+	IW = Img->height;
+	IL = Img->width;
+	dst = cvCreateImage(cvSize(IL, IW), 8, 1);
+	dst1 = cvCreateImage(cvSize(IL, IW), 8, 1);
+	
+	for (i = 0; i < 4; i++){	
+		separation2(Img, dst, a);
+		judeg(dst,&sidelength1[i],a);
+		cout << sidelength1[i] << "\n";
+		separation2(Img1, dst1, a);		
+		judeg(dst1,&sidelength2[i],a);
+		cout << sidelength2[i] << "\n";
+		a++;
+ 	}
+	b = sidelength1[0];
+	for (i = 0; i < 3; i++){
+		if (sidelength1[i]<sidelength1[i + 1] ){
+			b = sidelength1[i+1];
+			a = i+2;
+		}		
+		else 
+			b = b;
+	}
+ 	separation2(Img, dst, a);
+	separation2(Img1, dst1, a);
+    Float(dst,dst1, x, y, z);
+
+	//顯示影像
+	cvNamedWindow("Picture", 1);
+	cvShowImage("Picture", Img1);
+	cvNamedWindow("Picture1", 1); //建立視窗(視窗名稱,參數) 
+	cvShowImage("Picture1", dst1); //顯示影像(視窗名稱,影像檔案) 
+	cvWaitKey(0); //按下任意按鍵可將圖片關閉
+	return 0;
+
+
+
+
+
+
+	//int IW = 720;
+	//int IL = 640;
+
+	//VideoCapture cap(0);	//抓取攝影機		
+	//if (!cap.isOpened());		//嘗試開啟攝影機			
+	//Mat frame;	//用矩陣紀錄抓取的每張frame	
+
+	//namedWindow("camera", 1);	//建立一個視窗,名稱為camera
+	//for (;;)
+	//{
+	//	cap >> frame;			//把取得的影像放置到矩陣中				
+
+	//	imshow("camera", frame);		//顯示frame到camera名稱的視窗	
+	//	if (waitKey(30) >= 0)
+	//	{
+	//		cv::imwrite("xxx.jpg", frame);
+	//		IplImage *Img = cvLoadImage("xxx.jpg", 0);
+	//		cvCanny(Img, Img, edgeThresh, edgeThresh * 3, 3);
+	//		//cvThreshold(Img, Img, 100, 255, CV_THRESH_BINARY);
+	//		cvShowImage("image", Img);
+	//		if (waitKey(30) >= 0)
+	//		{
+	//		}
+	//		IW = Img->width;
+	//		IL = Img->height;
+	//		unsigned char **image = new unsigned char *[IW];
+	//		for (int i = 0; i< IW; i++)
+	//			image[i] = new unsigned char[IL];
+	//		//讀取圖片
+
+	//		for (int i = 0; i < IW; i++){
+	//			for (int j = 0; j < IL; j++){
+	//				image[i][j] = (unsigned char)Img->imageData[i*IL + j];
+	//				//cout << " " << (unsigned int)image[i][j] << " ";
+	//			}
+	//		}
+	//		cvReleaseImage(&Img);
+	//		cout << IW << "  " << IL;
+	//		break;
+	//	}
+	//}
+
 }
+    void judeg(IplImage *dst,double *sidelength,int c)
+	{
+		IplImage *image;
+		int IW1,IL1,i,j;
+		int vertex1X1 = 0;
+		int vertex1Y1 = 0;
+		int vertex1X2 = 0;
+		int vertex1Y2 = 0;
+		int vertex1X3 = 0;
+		int vertex1Y3 = 0;
+		int side1 = 0;
+		int side2 = 0;
+		int side3 = 0;
+		int a = 0;
+
+		image = cvCreateImage(cvSize(dst->width, dst->height), IPL_DEPTH_8U, 1);
+		cvDilate(dst, image, 0, 1);
+		cvErode(image, image, 0, 1);
+		cvThreshold(image, image, 200, 255, CV_THRESH_BINARY);
+		cvCanny(image, image, edgeThresh, edgeThresh * 3, 3);
+		 
+		IW1 = image->height;
+		IL1 = image->width;
+		unsigned char **firstpicture = new unsigned char *[IW1];
+		for ( i = 0; i< IW1; i++)
+			firstpicture[i] = new unsigned char[IL1];
+		for ( i = 0; i< IW1; i++)
+			for ( j = 0; j < IL1; j++)
+				firstpicture[i][j] = (unsigned char)image->imageData[i*IL1 + j];//讀取第一張圖片的陣列
+		for ( i = 0; i< IW1; i++)
+			for ( j = 0; j < IL1; j++){
+				if ((unsigned int)firstpicture[i][j] == 255 && a == 0){
+					vertex1X1 = j;
+					vertex1Y1 = i;
+					a = 1;
+				}
+			}
+		for ( i = IW1 - 1; i > 0; i--)
+			for ( j = 0; j < IL1; j++){
+				if ((unsigned int)firstpicture[i][j] == 255 && a == 1){
+					vertex1X2 = j;
+					vertex1Y2 = i;
+					a = 2;
+				}
+			}
+		for ( j = IL1 - 1; j > 0; j--)
+			for ( i = IW1 - 1; i > 0; i--){
+				if ((unsigned int)firstpicture[i][j] == 255 && a == 2){
+					vertex1X3 = j;
+					vertex1Y3 = i;
+					a = 3;
+				}
+			}
+
+		side1 = sqrt(pow(double(vertex1X3 - vertex1X2), 2) + pow(double(vertex1Y3 - vertex1Y2), 2));
+		side2 = sqrt(pow(double(vertex1X1 - vertex1X2), 2) + pow(double(vertex1Y1 - vertex1Y2), 2));
+		side3 = sqrt(pow(double(vertex1X3 - vertex1X1), 2) + pow(double(vertex1Y3 - vertex1Y1), 2));
+		cout << "side1:"<< side1 << "  side2:" << side2 << "   side3:" << side3 << "\n";
+		cout << side1 - side2 << "   " << side1 - side3 << "    " << side2 - side3 << "\n";
+		if ( (side1 - side2) < 10 && (side1 - side2) > -10 &&  (side1 - side3) < 10  && (side1 - side3) > -10 &&  (side2 - side3) < 10 && (side2 - side3)> -10)
+		{
+			*sidelength = side1;
+		}
+		else
+		{
+			*sidelength = 0;
+		}
+			
+		
+		for ( i = 0; i < IW1; i++)
+			delete firstpicture[i];
+		delete firstpicture;
+	}
 
 
-//顯示影像
-cvNamedWindow("Picture",1); 
-cvShowImage("Picture",Img);
-cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
-cvShowImage("Picture1",dst); //顯示影像(視窗名稱,影像檔案) 
-cvWaitKey(0); //按下任意按鍵可將圖片關閉
-return 0;
-}
+	void Float(IplImage *dst,IplImage *dst1, double *x, double *y, double *z)
+	{
+		IplImage *image;
+		IplImage *image1;
+		int edgeThresh = 50;
+		int IW1;
+		int IL1;
+		int vertex1X1 = 0;
+		int vertex1Y1 = 0;
+		int a = 0;
+		int A1 = 0;
+		int vertex1X2 = 0;
+		int vertex1Y2 = 0;
+		int vertex1X3 = 0;
+		int vertex1Y3 = 0;
+		double center1X = 0;
+		double center1Y = 0;
+		double realobjectdistance = 60;
+		double imagedistance = 0;
+		double realobjectdistance1 = 0;
+		int IW2;
+		int IL2;
+		int vertex2X1=0;
+		int vertex2Y1=0;
+		int b = 0;
+		int A2 = 0;
+		int vertex2X2;
+		int vertex2Y2;
+		int vertex2X3;
+		int vertex2Y3;
+		double center2X=0;
+		double center2Y=0;
+		double realmoveX = 0;
+		double realmoveY = 0;
+		double realmoveZ = 0;
+		double scalevalue = 0;
+		double helptocalculate = 0;
+		double A = 0;
+
+		image = cvCreateImage(cvSize(dst->width, dst->height), IPL_DEPTH_8U, 1);
+		cvDilate(dst, image, 0, 1);
+		cvErode(image, image, 0, 1);
+		cvThreshold(image, image, 200, 255, CV_THRESH_BINARY);
+		cvCanny(image, image, edgeThresh, edgeThresh * 3, 3);
+
+		image1 = cvCreateImage(cvSize(dst1->width, dst1->height), IPL_DEPTH_8U, 1);
+		cvDilate(dst1, image1, 0, 1);
+		cvErode(image1, image1, 0, 1);
+		cvThreshold(image1, image1, 200, 255, CV_THRESH_BINARY);
+		cvCanny(image1, image1, edgeThresh, edgeThresh * 3, 3);
+		
+
+		IW1 = image->height;
+ 		IL1 = image->width;
+        IW2 = image->height;
+		IL2 = image->width;
+
+		unsigned char **firstpicture = new unsigned char *[IW1];
+		unsigned char **secondpicture = new unsigned char *[IW2];
+
+		for (int i = 0; i< IW1; i++)
+			firstpicture[i] = new unsigned char[IL1];
+		for (int i = 0; i< IW1; i++)
+			for (int j = 0; j < IL1; j++)
+				firstpicture[i][j] = (unsigned char)image->imageData[i*IL1 + j];//讀取第一張圖片的陣列
+		
+		for (int i = 0; i< IW2; i++)
+			secondpicture[i] = new unsigned char[IL2];
+		for (int i = 0; i< IW2; i++)
+			for (int j = 0; j < IL2; j++)
+				secondpicture[i][j] = (unsigned char)image1->imageData[i*IL2 + j];//讀取第二張圖片的陣列
+		
+
+		for (int i = 0; i< IW1; i++)
+			for (int j = 0; j < IL1; j++){
+				if ((unsigned int)firstpicture[i][j] == 255 && a == 0){
+					vertex1X1 = j;
+					vertex1Y1 = i;
+					a = 1;
+				}
+			}
+		//std::cout << "第一個頂點:" << vertex1X1 << "," << vertex1Y1 << "\n";
+		for (int i = IW1 - 1; i > 0; i--)
+			for (int j = 0; j < IL1; j++){
+				if ((unsigned int)firstpicture[i][j] == 255 && a == 1){
+					vertex1X2 = j;
+					vertex1Y2 = i;
+					a = 2;
+				}
+			}
+		//std::cout << "第二個頂點:" << vertex1X2 << "," << vertex1Y2 << "\n";
+		for (int j = IL1 - 1; j > 0; j--)
+			for (int i = IW1 - 1; i > 0; i--){
+				if ((unsigned int)firstpicture[i][j] == 255 && a == 2){
+					vertex1X3 = j;
+					vertex1Y3 = i;
+					a = 3;
+				}
+
+			}
+		double sidelength1 = sqrt(pow(double(vertex1X3 - vertex1X2), 2) + pow(double(vertex1Y3 - vertex1Y2), 2));
+		A1 = sqrt(double(3))*pow(sidelength1, 2) / 4;
+		//std::cout << "第三個頂點:" << vertex1X3 << "," << vertex1Y3 << "\n";
+		center1X = (vertex1X1 + vertex1X2 + vertex1X3) / 3;
+		center1Y = (vertex1Y1 + vertex1Y2 + vertex1Y3) / 3;
+		std::cout << "重心1:" << center1X << "," << center1Y << "\n";
+		//std::cout << "面積:" << A1 << std::endl;
+
+		
+		for (int i = 0; i< IW2; i++)
+			for (int j = 0; j < IL2; j++){
+				if ((unsigned int)secondpicture[i][j] == 255 && b == 0){
+					vertex2X1 = j;
+					vertex2Y1 = i;
+					b = 1;
+				}
+			}
+        //cout << "第一個頂點:" << vertex2X1 << "," << vertex2Y1 << "\n";
+		for (int i = IW2 - 1; i > 0; i--)
+			for (int j = 0; j < IL2; j++){
+				if ((unsigned int)secondpicture[i][j] == 255 && b == 1){
+					vertex2X2 = j;
+					vertex2Y2 = i;
+					b = 2;
+				}
+			}
+		//cout << "第二個頂點:" << vertex2X2 << "," << vertex2Y2 << "\n";
+		for (int j = IL2 - 1; j > 0; j--)
+			for (int i = IW2 - 1; i > 0; i--){
+				if ((unsigned int)secondpicture[i][j] == 255 && b == 2){
+					vertex2X3 = j;
+					vertex2Y3 = i;
+					b = 3;
+				}
+			}
+		double sidelength2 = sqrt(pow(double(vertex2X3 - vertex2X2), 2) + pow(double(vertex2Y3 - vertex2Y2), 2));
+		A2 = sqrt(double(3))*pow(sidelength2, 2) / 4;
+		//cout << "第三個頂點:" << vertex2X3 << "," << vertex2Y3 << "\n";
+		center2X = (vertex2X1 + vertex2X2 + vertex2X3) / 3;
+		center2Y = (vertex2Y1 + vertex2Y2 + vertex2Y3) / 3;
+		cout << "重心2:" << center2X << "," << center2Y << "\n";
+		//cout << "面積:" << A2 << endl;
+		cout << "X移動:" << center2X - center1X << "\nY移動:" << center2Y - center1Y << "\n";
+		imagedistance = realobjectdistance*sidelength1 / 12;
+		//cout << "影像與光感距離: " << imagedistance << "\n";
+		realobjectdistance1 = imagedistance * 12 / sidelength2;
+		helptocalculate = A1 * 4 / sqrt(double(3));
+		scalevalue = sqrt(helptocalculate) / 12;
+
+		realmoveX = (center2X - center1X) / scalevalue;
+		realmoveY = (center2Y - center1Y) / scalevalue;
+		realmoveZ = realobjectdistance - realobjectdistance1;
+		cout << "X實際移動:" << realmoveX << "\nY實際移動:" << realmoveY << "\n";
+		cout << "Z實際移動:" << realmoveZ << "\n\n";
+		
+		*x = realmoveX;
+		*y = realmoveY;
+		*z = realmoveZ;
+		for (int i = 0; i < IW1; i++)
+			delete firstpicture[i];
+		delete firstpicture;
+		for (int i = 0; i < IW2; i++)
+			delete secondpicture[i];
+		delete secondpicture;
+	}
+	void separation2(IplImage *src, IplImage *dst, int a){
+		//陣列方式宣告
+		//unsigned char** R = new unsigned char *[src->height];	
+		//unsigned char** G = new unsigned char *[src->height];
+		//unsigned char** B = new unsigned char *[src->height];
+		//for( int i = 0 ; i < src->height ; i++ ){
+		//	R[i] = new unsigned char[src->width];
+		//	G[i] = new unsigned char[src->width];
+		//	B[i] = new unsigned char[src->width];
+		//}
+		//指標方式宣告
+		IplImage *R = cvCreateImage(cvGetSize(src), 8, 1);
+		IplImage *G = cvCreateImage(cvGetSize(src), 8, 1);
+		IplImage *B = cvCreateImage(cvGetSize(src), 8, 1);
+		for (int i = 0; i<src->height; i++){
+			int countR = 0, countG = 0, countB = 0;
+			for (int j = 0; j<src->widthStep; j++){
+				if (j % 3 == 2){
+					R->imageData[i*R->width + countR] = src->imageData[i*src->widthStep + j];
+					countR++;
+				}
+				if (j % 3 == 1){
+					G->imageData[i*G->width + countG] = src->imageData[i*src->widthStep + j];
+					countG++;
+				}
+				if (j % 3 == 0){
+					B->imageData[i*B->width + countB] = src->imageData[i*src->widthStep + j];
+					countB++;
+				}
+			}
+		}
+		////RGB矩陣測試
+		//	for( int i=0 ; i<src->height ; i++ ){
+		//		for(int j=0 ; j<src->width ; j++){
+		//			unsigned char temp=B->imageData[i*B->width+j];
+		//			unsigned char temp1=G->imageData[i*G->width+j];
+		//			unsigned char temp2=R->imageData[i*R->width+j];
+		//			int t = temp;
+		//			int t1=temp1;
+		//			int t2=temp2;
+		//			
+		//			//std::cout<<t<<std::endl; 
+		//		}
+		//	}
+		for (int i = 0; i<dst->height; i++){
+			for (int j = 0; j< dst->width; j++){
+				unsigned char temp = B->imageData[i*B->width + j];
+				unsigned char temp1 = G->imageData[i*G->width + j];
+				unsigned char temp2 = R->imageData[i*R->width + j];
+				int t = temp;
+				int t1 = temp1;
+				int t2 = temp2;
+				if (t>128)
+					t = 255;
+				else
+					t = 0;
+				if (t1>128)
+					t1 = 255;
+				else
+					t1 = 0;
+				if (t2>128)
+					t2 = 255;
+				else
+					t2 = 0;
+				if (t == 0 && t1 == 0 && t2 == 255 && a == 1){
+					dst->imageData[i*dst->width + j] = 255;
+				}
+				else if (a == 1)
+					dst->imageData[i*dst->width + j] = 0;  //取出紅色
+
+				if (t == 255 && t1 == 0 && t2 == 0 && a == 2){
+					dst->imageData[i*dst->width + j] = 255;
+				}
+				else if (a == 2)
+					dst->imageData[i*dst->width + j] = 0;//取出藍色
+
+				if (t == 0 && t1 == 255 && t2 == 0 && a == 3){
+					dst->imageData[i*dst->width + j] = 255;
+				}
+				else if (a == 3)
+					dst->imageData[i*dst->width + j] = 0;//取出綠色
+
+				if (t == 255 && t1 == 255 && t2 == 255 && a == 4){
+					dst->imageData[i*dst->width + j] = 255;
+				}
+				else if (a == 4)
+					dst->imageData[i*dst->width + j] = 0;//取出白色
+			}
+		}
+	}
