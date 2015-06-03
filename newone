@@ -238,6 +238,7 @@ void judeg(IplImage *dst, double *x , double *y , double *z, double *side,double
 	{
 		*x=0;
 		*y=0;
+		*z=0;
 		*side=1;
 	}
    
