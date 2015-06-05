@@ -20,7 +20,7 @@ int main()
 	int IW;
         int IL;
 	int choose=1;//選擇顏色
-	int correctchoose=1;//選擇需要顏色
+	int correctchoose=1;//選擇需要顏色(就是邊長最長的一邊)
 	double x,y,z;//實際移動值
 	double side[9]={0};//邊長儲存
 //=======絕對座標========
@@ -51,7 +51,7 @@ int main()
 		separation2(Img,dst,choose);//提取顏色
   		judeg(dst,&x,&y,&side[i],choose);//找重心
 		cout << "side: " <<  side[i] << "    ";
-	if( side[i] > side[i-1] )
+	if( side[i] > side[i-1] )//找最長邊長並記錄
 	{
 	  correctchoose=choose;
 	}
@@ -123,11 +123,11 @@ void calculate(double imagedistance,double *z ,int choose,double sidelength1)
 {
 	double realmoveZ=0;
 	double realobjectdistance = 34;
-    double realobjectdistance1 = 34;
+        double realobjectdistance1 = 34;
 	int scalevalue=0;
-	if(choose==3 || choose==4 || choose==7 || choose==8)
+	if(choose==3 || choose==4 || choose==7 || choose==8)//green  black  yellow  gray
 		scalevalue = 15;
-		else 
+	else 
 		scalevalue = 8;
 
 	realobjectdistance1=imagedistance*scalevalue/sidelength1;
@@ -139,7 +139,7 @@ void imagedepth(double sidelength, double *sideofimage,int choose)
 	double realobjectdistance = 34;
 	int scalevalue=0;
 	
-	if(choose==3 || choose==4 || choose==7 || choose==8)
+	if(choose==3 || choose==4 || choose==7 || choose==8)//green  black  yellow  gray
 		scalevalue=15;
 	else
 		scalevalue=8;
@@ -196,8 +196,8 @@ void separation2(IplImage *src, IplImage *dst, int a){
 				int t=temp;
 				int t1=temp1;
 				int t2=temp2;
-				//cout << t2 << "  ";
-				if(a==1 || a==2 || a==3 || a==4){
+				
+				if(a==1 || a==2 || a==3 || a==4){ //red  blue  green  black
 					if(t>176)
 						t=255;
 					else
@@ -211,7 +211,7 @@ void separation2(IplImage *src, IplImage *dst, int a){
 					else
 						t2=0;
 				}
-				if(a==5){
+				if(a==5){ //blueness
 					if(t>68)
 						t=255;
 					else
@@ -225,7 +225,7 @@ void separation2(IplImage *src, IplImage *dst, int a){
 					else
 						t2=0;
 				}
-				if(a==6){
+				if(a==6){ //purple
 					if(t>110)
 						t=255;
 					else
@@ -239,7 +239,7 @@ void separation2(IplImage *src, IplImage *dst, int a){
 					else
 						t2=0;
 				}
-				if(a==7){
+				if(a==7){ //yellow
 					/*if(t>65)
 						t=255;
 					else*/
@@ -253,7 +253,7 @@ void separation2(IplImage *src, IplImage *dst, int a){
 					else
 						t2=0;
 				}
-				if(a==8){
+				if(a==8){ //gray
 					if(t>155)
 						t=255;
 					else if(t<90)
@@ -331,7 +331,7 @@ void separation2(IplImage *src, IplImage *dst, int a){
 }
 void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 {
-	int edgeThresh = 50;
+    int edgeThresh = 50;
     IplImage *image;
     int IW1;
     int IL1;
@@ -343,7 +343,7 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
     int vertex1X3=0;
     int vertex1Y3=0;
 	double center1X=0;
-    double center1Y=0;
+        double center1Y=0;
 	double realmoveX=0;
 	double realmoveY=0;
 	double sidelength1=0;
@@ -398,7 +398,7 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 	if((side1-side2)<10 && (side1-side2)>-10 && (side2-side3)>-10 && (side2-side3)<10 && (side1-side3)>-10 && (side1-side2)<10)
 	{  
         sidelength1 =  sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
-	    if(choose==3 || choose==4 || choose==7 || choose==8)
+	    if(choose==3 || choose==4 || choose==7 || choose==8) //green  black  yellow  gray
 		scalevalue = 15;
 		else 
 		scalevalue = 8;
@@ -415,7 +415,7 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 	
         *x=realmoveX;
         *y=realmoveY;
-		*side=side1;
+	*side=side1;
 	}
 	else
 	{
