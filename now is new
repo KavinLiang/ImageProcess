@@ -14,13 +14,13 @@ void separation2(IplImage *, IplImage *,int);
 void judeg(IplImage *,double *,double *,double * ,int);
 void imagedepth(double ,double *,int);
 void calculate(double ,double *, int, double);
-
+void usehsv(IplImage *, IplImage *);
 int main()
 {   
 	int IW;
-        int IL;
+    int IL;
 	int choose=1;//選擇顏色
-	int correctchoose=1;//選擇需要顏色(就是邊長最長的一邊)
+	int correctchoose=1;//選擇需要顏色
 	double x,y,z;//實際移動值
 	double side[9]={0};//邊長儲存
 //=======絕對座標========
@@ -43,21 +43,38 @@ int main()
 //=======絕對座標========
 	IplImage *Img;
 	IplImage *dst;
-	Img = cvLoadImage("pic2.jpg",1); //讀圖片
+	IplImage *dst1;
+	Img = cvLoadImage("1.jpg",1); 
 	IW = Img->height;
-        IL = Img->width;
-        dst= cvCreateImage( cvSize(IL ,IW) , 8, 1 );
+    IL = Img->width;
+    dst= cvCreateImage( cvSize(IL ,IW) , 8, 3 );
+	dst1= cvCreateImage( cvSize(IL ,IW) , 8, 1 );
+	
+	
 	for(int i=0; i<8;i++){
-		separation2(Img,dst,choose);//提取顏色
-  		judeg(dst,&x,&y,&side[i],choose);//找重心
-		cout << "side: " <<  side[i] << "    ";
-	if( side[i] > side[i-1] )//找最長邊長並記錄
-	{
-	  correctchoose=choose;
-	}
+		if(choose!=8 && choose!=4)
+	    {
+	      usehsv(Img,dst);
+          separation2(dst,dst1,choose);	  
+	    }
+	    else
+	      separation2(Img,dst1,choose);
+
+  		judeg(dst1,&x,&y,&side[i],choose);//找重心
+		//cout << "side: " <<  side[i] << "    ";
+	if( side[i] > side[i-1] )
+	  {
+	     correctchoose=choose;
+	  }
 	  choose++;
 	}
-	separation2(Img,dst,correctchoose);//提取顏色
+	cout << "correctchoose:" << correctchoose  << "\n";
+	if(correctchoose!=8 && correctchoose!=4){
+	    usehsv(Img,dst);
+        separation2(dst,dst1,correctchoose);
+	}
+	else
+		separation2(Img,dst1,correctchoose);
 	if(c==0)
 	{
 	imagedepth(side[correctchoose-1],&sideofimage,correctchoose);//找Z的深度
@@ -65,8 +82,8 @@ int main()
 	}
 	cout << "邊長:" << side[correctchoose-1] << "\n";
 	cout << "影象深度:"  <<  sideofimage << " \n" ;
-	judeg(dst,&x,&y,&side[correctchoose-1],correctchoose);//找X和Y
-	if(correctchoose==1)
+	judeg(dst1,&x,&y,&side[correctchoose-1],correctchoose);//找X和Y
+	/*if(correctchoose==1)
 	{
 		x=RedX+x;
 		y=RedY+y;
@@ -110,24 +127,80 @@ int main()
 	{
 		x=0;
 		y=0;
-	}
-	calculate(sideofimage,&z,correctchoose,side[correctchoose-1]);//算出Z的變化量
-	cout << correctchoose << "\n";
-	cout << "x:" << x << "    y:" << y  << "     z:" << z;
-	cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
-	cvShowImage("Picture1",dst); //顯示影像(視窗名稱,影像檔案) 
+	}*/
+	//sideofimage=344.5;
+	//calculate(sideofimage,&z,correctchoose,side[correctchoose-1]);//算出Z的變化量
+	//cout << correctchoose << "\n";
+	//cout << "x:" << x << "    y:" << y  << "     z:" << z;
+    cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
+	cvShowImage("Picture1",dst1); //顯示影像(視窗名稱,影像檔案) 
 	cvWaitKey(0);
 	system ("pause");
+}
+void usehsv(IplImage *src ,IplImage *dst)
+{
+	int IW;
+    int IL;
+	IW = src->height;
+    IL = src->width;
+	IplImage *hsv;
+	hsv = cvCreateImage( cvSize(IL,IW) , 8, 3 );
+
+	cvCvtColor( src, hsv, CV_BGR2HSV ); 
+	IplImage* h_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
+	IplImage* s_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
+	IplImage* v_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
+
+    cvSplit(hsv,h_space,s_space,v_space,NULL);//提取HSV各通道
+
+		for( int i=0 ; i<src->height ; i++ ){
+		   for(int j=0 ; j<src->width ; j++){
+			unsigned char h=h_space->imageData[i*h_space->width+j];
+			unsigned char s=s_space->imageData[i*s_space->width+j];
+			unsigned char v=v_space->imageData[i*v_space->width+j];
+
+			int t = h;
+			int t1= s;
+			int t2= v;
+
+			if(t1>43)
+				s_space->imageData[ i*s_space->width+j ] = 255;
+			else
+				s_space->imageData[ i*s_space->width+j ] = 0;
+
+				v_space->imageData[ i*v_space->width+j ] = 255;
+
+				 
+		   }
+        }
+
+
+    IplImage* shsv =cvCreateImage(cvGetSize(src),src->depth,3);
+    
+	//IplImage* image_1 =cvCreateImage(cvGetSize(src),src->depth,3);
+	cvMerge(h_space,s_space,v_space,NULL,shsv);
+
+	cvCvtColor( shsv, dst, CV_HSV2BGR );
+	//cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
+	//cvShowImage("Picture1",dst); //顯示影像(視窗名稱,影像檔案) 
+	//cvWaitKey(0);
+	//dst = image_1;
+	//cvShowImage("output",image_1);
+
+	//cvWaitKey(0);
+
+	//cvReleaseImage(&image_1);
+	//cvDestroyWindow("output");
 }
 void calculate(double imagedistance,double *z ,int choose,double sidelength1)
 {
 	double realmoveZ=0;
 	double realobjectdistance = 34;
-        double realobjectdistance1 = 34;
+    double realobjectdistance1 = 34;
 	int scalevalue=0;
-	if(choose==3 || choose==4 || choose==7 || choose==8)//green  black  yellow  gray
+	if(choose==3 || choose==4 || choose==7 || choose==8)
 		scalevalue = 15;
-	else 
+		else 
 		scalevalue = 8;
 
 	realobjectdistance1=imagedistance*scalevalue/sidelength1;
@@ -139,7 +212,7 @@ void imagedepth(double sidelength, double *sideofimage,int choose)
 	double realobjectdistance = 34;
 	int scalevalue=0;
 	
-	if(choose==3 || choose==4 || choose==7 || choose==8)//green  black  yellow  gray
+	if(choose==3 || choose==4 || choose==7 || choose==8)
 		scalevalue=15;
 	else
 		scalevalue=8;
@@ -169,24 +242,25 @@ void separation2(IplImage *src, IplImage *dst, int a){
 			if ( j%3==1 ){
 				G->imageData[i*G->width+countG]= src->imageData[i*src->widthStep+j];
 				countG++;
-			}
+			} 
 			if ( j%3==0 ){
 				B->imageData[i*B->width+countB]= src->imageData[i*src->widthStep+j];
 				countB++;
 			}
 		}
 	}
+
 //RGB矩陣測試
-	for( int i=0 ; i<src->height ; i++ ){
-		for(int j=0 ; j<src->width ; j++){
-			unsigned char temp=B->imageData[i*B->width+j];
-			unsigned char temp1=G->imageData[i*G->width+j];
-			unsigned char temp2=R->imageData[i*R->width+j];
-			int t = temp;
-			int t1=temp1;
-			int t2=temp2;
-		}
-	}
+	//for( int i=0 ; i<src->height ; i++ ){
+	//	for(int j=0 ; j<src->width ; j++){
+	//		unsigned char temp=B->imageData[i*B->width+j];
+	//		unsigned char temp1=G->imageData[i*G->width+j];
+	//		unsigned char temp2=R->imageData[i*R->width+j];
+	//		int t = temp;
+	//		int t1=temp1;
+	//		int t2=temp2;
+	//	}
+	//}
 	for( int i=0 ; i<dst->height ; i++ ){
 		for( int j=0 ; j< dst->width ; j++ ){
 			for(int k=0 ; k<3 ; k++){
@@ -196,79 +270,38 @@ void separation2(IplImage *src, IplImage *dst, int a){
 				int t=temp;
 				int t1=temp1;
 				int t2=temp2;
-				
-				if(a==1 || a==2 || a==3 || a==4){ //red  blue  green  black
-					if(t>176)
-						t=255;
-					else
-						t=0;
-					if(t1>217)
-						t1=255; 
-					else
-						t1=0; 
-					if(t2>243)
-						t2=255;
-					else
-						t2=0;
-				}
-				if(a==5){ //blueness
-					if(t>68)
+				//cout << t << "  ";
+				if(a==1 || a==2 || a==3 || a==4){
+					if(t>85)
 						t=255;
 					else
 						t=0;
 					if(t1>85)
 						t1=255; 
 					else
-						t1=0;
-					if(t2>68)
+						t1=0; 
+					if(t2>85)
 						t2=255;
 					else
 						t2=0;
 				}
-				if(a==6){ //purple
-					if(t>110)
+			
+				if(a==8){
+					if(t>97)
 						t=255;
-					else
-						t=0;
-					if(t1>90)
-						t1=255; 
-					else
-						t1=0;
-					if(t2>45)
-						t2=255;
-					else
-						t2=0;
-				}
-				if(a==7){ //yellow
-					/*if(t>65)
-						t=255;
-					else*/
-						t=0;
-					if(t1>148)
-						t1=255; 
-					else
-						t1=0;
-					if(t2>148)
-						t2=255;
-					else
-						t2=0;
-				}
-				if(a==8){ //gray
-					if(t>155)
-						t=255;
-					else if(t<90)
+					else if(t<70)
 						t=255;
 					else
 						t=128;
-					if(t1>155)
+					if(t1>110)
 						t1=255;
-					else if(t1<90)
+					else if(t1<70)
 						t1=255;
 					else
 						t1=128;
-					if(t2>155)
+					if(t2>110)
 						t2=255;
-					else if(t2<90)
+					else if(t2<70)
 						t2=255;
 					else
 						t2=128; 
@@ -298,19 +331,19 @@ void separation2(IplImage *src, IplImage *dst, int a){
 				else if(a==4)
 					dst->imageData[ i*dst->width+j ]=0;//取黑色
 
-				if ( t == 255 && t1 == 255  && t2 == 0 && a==5 ){
+				if ( t > 200 && t1 > 200  && t2 < 10 && a==5 ){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
 				else if(a==5)
 					dst->imageData[ i*dst->width+j ]=0;//取青色
 
-				if ( t == 255 && t1 == 0  && t2 == 255 && a==6 ){
+				if ( t > 128 && t1 < 10  && t2 > 200 && a==6 ){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
 				else if(a==6)
 					dst->imageData[ i*dst->width+j ]=0;//取紫色
 
-				if ( t == 0 && t1 == 255  && t2 == 255 && a==7 ){
+				if ( t < 10 && t1 > 200  && t2 > 200 && a==7 ){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
 				else if(a==7)
@@ -325,13 +358,13 @@ void separation2(IplImage *src, IplImage *dst, int a){
 		}
 	  }
 	}
-	
-	cvErode(dst,dst,0,1);
-	cvDilate(dst,dst,0,1);
+
+	cvErode(dst,dst,0,3);
+	cvDilate(dst,dst,0,3);
 }
 void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 {
-    int edgeThresh = 50;
+	int edgeThresh = 50;
     IplImage *image;
     int IW1;
     int IL1;
@@ -343,7 +376,7 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
     int vertex1X3=0;
     int vertex1Y3=0;
 	double center1X=0;
-        double center1Y=0;
+    double center1Y=0;
 	double realmoveX=0;
 	double realmoveY=0;
 	double sidelength1=0;
@@ -394,11 +427,11 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 	double side1 = sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
 	double side2 = sqrt(pow(double(vertex1X3-vertex1X1),2)+pow(double(vertex1Y3-vertex1Y1),2));
 	double side3 = sqrt(pow(double(vertex1X1-vertex1X2),2)+pow(double(vertex1Y1-vertex1Y2),2));
-	
+	cout << choose << "  " << side1 << "  " <<  side2 << "  " << side3 << "  \n";
 	if((side1-side2)<10 && (side1-side2)>-10 && (side2-side3)>-10 && (side2-side3)<10 && (side1-side3)>-10 && (side1-side2)<10)
 	{  
         sidelength1 =  sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
-	    if(choose==3 || choose==4 || choose==7 || choose==8) //green  black  yellow  gray
+	    if(choose==3 || choose==4 || choose==7 || choose==8)
 		scalevalue = 15;
 		else 
 		scalevalue = 8;
@@ -415,13 +448,13 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 	
         *x=realmoveX;
         *y=realmoveY;
-	*side=side1;
+		*side=side1;
 	}
 	else
 	{
 		*x=0;
 		*y=0;
-		*side=1;
+		*side=0;
 	}
    
     for(int i=0; i<IW1 ;i++)
