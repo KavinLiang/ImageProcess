@@ -1,0 +1,479 @@
+#include <stdio.h>
+#include <iostream>
+#include <cv.h>
+#include <highgui.h>
+#include <math.h>
+
+
+using namespace std;
+    
+	
+int c=0;
+double sideofimage=0;//鏡頭到感光原件距離
+void separation2(IplImage *, IplImage *,int);
+void judeg(IplImage *,double *,double *,double * ,int);
+void imagedepth(double ,double *,int);
+void calculate(double ,double *, int, double);
+void usehsv(IplImage *, IplImage *);
+int main()
+{   
+	int IW;
+    int IL;
+	int choose=1;//選擇顏色
+	int correctchoose=1;//選擇需要顏色
+	double x,y,z;//實際移動值
+	double side[9]={0};//邊長儲存
+//=======絕對座標========
+	double GreenX=20.4853;
+	double GreenY=24.9197;
+	double RedX=31.9827;
+	double RedY=20.9527;
+	double BlueX=43.006;
+	double BlueY=20.9527;
+	double YellowX=20.464;
+	double YellowY=44.267;
+	double BluenessX=31.9893;
+	double BluenessY=40.2187;
+	double PurpleX=43;
+	double PurpleY=40.2187;
+	double BlackX=54.51;
+	double BlackY=44.277;
+	double GrayX=54.402; 
+	double GrayY=24.97;
+//=======絕對座標========
+	IplImage *Img;
+	IplImage *dst;
+	IplImage *dst1;
+	Img = cvLoadImage("5.jpg",1); 
+	IW = Img->height;
+    IL = Img->width;
+    dst= cvCreateImage( cvSize(IL ,IW) , 8, 3 );
+	dst1= cvCreateImage( cvSize(IL ,IW) , 8, 1 );
+
+	for(int i=0; i<8;i++){
+		if(choose!=8 && choose!=4)
+	    {
+	      usehsv(Img,dst);
+          separation2(dst,dst1,choose);	  
+	    }
+	    else
+	      separation2(Img,dst1,choose);
+
+  		judeg(dst1,&x,&y,&side[i],choose);//找重心
+		//cout << "side: " <<  side[i] << "    ";
+	if( side[i] > side[i-1] )
+	  {
+	     correctchoose=choose;
+	  }
+	  choose++;
+	}
+	cout << "correctchoose:" << correctchoose  << "\n";
+	if(correctchoose!=8 && correctchoose!=4){
+	    usehsv(Img,dst);
+        separation2(dst,dst1,correctchoose);
+	}
+	else
+		separation2(Img,dst1,correctchoose);
+	if(c==0) 
+	{
+	imagedepth(side[correctchoose-1],&sideofimage,correctchoose);//找Z的深度
+	c++;
+	}
+	
+	cout << "邊長:" << side[correctchoose-1] << "\n";
+	cout << "影象深度:"  <<  sideofimage << " \n" ;
+	judeg(dst1,&x,&y,&side[correctchoose-1],correctchoose);//找X和Y
+	if(correctchoose==1)
+	{
+		x=RedX+x;
+		y=RedY+y;
+	}
+	else if(correctchoose==2)
+	{
+		x=BlueX+x;
+		y=BlueY+y;
+	}
+	else if(correctchoose==3)
+	{
+		x=GreenX+x;
+		y=GreenY+y;
+	}
+	else if(correctchoose==4)
+	{
+		x=BlackX+x;
+		y=BlackY+y;
+	}
+	else if(correctchoose==5)
+	{
+		x=BluenessX+x;
+		y=BluenessY+y;
+	}
+	else if(correctchoose==6)
+	{
+		x=PurpleX+x;
+		y=PurpleY+y;
+	}
+	else if(correctchoose==7)
+	{
+		x=YellowX+x;
+		y=YellowY+y;
+	}
+	else if(correctchoose==8)
+	{
+		x=GrayX+x;
+		y=GrayY+y;
+	}
+	else
+	{
+		x=0;
+		y=0;
+	}
+	//sideofimage=344.5;
+	calculate(sideofimage,&z,correctchoose,side[correctchoose-1]);//算出Z的變化量
+	//cout << correctchoose << "\n";
+	cout << "x:" << x << "    y:" << y  << "     z:" << z;
+    cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
+	cvShowImage("Picture1",dst1); //顯示影像(視窗名稱,影像檔案) 
+	cvWaitKey(0);
+	system ("pause");
+}
+void usehsv(IplImage *src ,IplImage *dst)
+{
+	int IW;
+    int IL;
+	IW = src->height;
+    IL = src->width;
+	IplImage *hsv;
+	hsv = cvCreateImage( cvSize(IL,IW) , 8, 3 );
+
+	cvCvtColor( src, hsv, CV_BGR2HSV ); 
+	IplImage* h_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
+	IplImage* s_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
+	IplImage* v_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
+
+    cvSplit(hsv,h_space,s_space,v_space,NULL);//提取HSV各通道
+
+		for( int i=0 ; i<src->height ; i++ ){
+		   for(int j=0 ; j<src->width ; j++){
+			unsigned char h=h_space->imageData[i*h_space->width+j];
+			unsigned char s=s_space->imageData[i*s_space->width+j];
+			unsigned char v=v_space->imageData[i*v_space->width+j];
+
+			int t = h;
+			int t1= s;
+			int t2= v;
+
+			if(t1>43)
+				s_space->imageData[ i*s_space->width+j ] = 255;
+			else
+				s_space->imageData[ i*s_space->width+j ] = 0;
+
+				v_space->imageData[ i*v_space->width+j ] = 255;
+
+				 
+		   }
+        }
+
+
+    IplImage* shsv =cvCreateImage(cvGetSize(src),src->depth,3);
+    
+	//IplImage* image_1 =cvCreateImage(cvGetSize(src),src->depth,3);
+	cvMerge(h_space,s_space,v_space,NULL,shsv);
+
+	cvCvtColor( shsv, dst, CV_HSV2BGR );
+	//cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
+	//cvShowImage("Picture1",dst); //顯示影像(視窗名稱,影像檔案) 
+	//cvWaitKey(0);
+	//dst = image_1;
+	//cvShowImage("output",image_1);
+
+	//cvWaitKey(0);
+
+	//cvReleaseImage(&image_1);
+	//cvDestroyWindow("output");
+}
+void calculate(double imagedistance,double *z ,int choose,double sidelength1)
+{
+	double realmoveZ=0;
+	double realobjectdistance = 34;
+    double realobjectdistance1 = 34;
+	int scalevalue=0;
+	if(choose==3 || choose==4 || choose==7 || choose==8)
+		scalevalue = 15;
+		else 
+		scalevalue = 8;
+
+	realobjectdistance1=imagedistance*scalevalue/sidelength1;
+    realmoveZ=realobjectdistance-realobjectdistance1;
+	*z=realmoveZ;
+}
+void imagedepth(double sidelength, double *sideofimage,int choose)
+{
+	double realobjectdistance = 34;
+	int scalevalue=0;
+	
+	if(choose==3 || choose==4 || choose==7 || choose==8)
+		scalevalue=15;
+	else
+		scalevalue=8;
+	*sideofimage=realobjectdistance*sidelength/scalevalue;
+}
+void separation2(IplImage *src, IplImage *dst, int a){
+  //陣列方式宣告
+	//unsigned char** R = new unsigned char *[src->height];	
+	//unsigned char** G = new unsigned char *[src->height];
+	//unsigned char** B = new unsigned char *[src->height];
+	//for( int i = 0 ; i < src->height ; i++ ){
+	//	R[i] = new unsigned char[src->width];
+	//	G[i] = new unsigned char[src->width];
+	//	B[i] = new unsigned char[src->width];
+	//}
+//指標方式宣告
+	IplImage *R = cvCreateImage(cvGetSize(src),8,1);
+	IplImage *G = cvCreateImage(cvGetSize(src),8,1);
+	IplImage *B = cvCreateImage(cvGetSize(src),8,1);
+	for( int i=0 ; i<src->height ; i++ ){
+		int countR=0,countG=0,countB=0;
+		for ( int j=0; j<src->widthStep ; j++ ){
+			if	( j%3==2 ){
+				R->imageData[i*R->width+countR]= src->imageData[i*src->widthStep+j];
+				countR++;
+			}
+			if ( j%3==1 ){
+				G->imageData[i*G->width+countG]= src->imageData[i*src->widthStep+j];
+				countG++;
+			} 
+			if ( j%3==0 ){
+				B->imageData[i*B->width+countB]= src->imageData[i*src->widthStep+j];
+				countB++;
+			}
+		}
+	}
+
+//RGB矩陣測試
+	//for( int i=0 ; i<src->height ; i++ ){
+	//	for(int j=0 ; j<src->width ; j++){
+	//		unsigned char temp=B->imageData[i*B->width+j];
+	//		unsigned char temp1=G->imageData[i*G->width+j];
+	//		unsigned char temp2=R->imageData[i*R->width+j];
+	//		int t = temp;
+	//		int t1=temp1;
+	//		int t2=temp2;
+	//	}
+	//}
+	for( int i=0 ; i<dst->height ; i++ ){
+		for( int j=0 ; j< dst->width ; j++ ){
+			for(int k=0 ; k<3 ; k++){
+				unsigned char temp=B->imageData[i*B->width+j];
+				unsigned char temp1=G->imageData[i*G->width+j];
+				unsigned char temp2=R->imageData[i*R->width+j];
+				int t=temp;
+				int t1=temp1;
+				int t2=temp2;
+				//cout << t << "  ";
+				if(a==1 || a==2 || a==3){
+					if(t>85)
+						t=255;
+					else
+						t=0;
+					if(t1>85)
+						t1=255; 
+					else
+						t1=0; 
+					if(t2>85)
+						t2=255;
+					else
+						t2=0;
+				}
+			    if(a==4){
+					if(t>85)
+						t=255;
+					else
+						t=0;
+					if(t1>85)
+						t1=255; 
+					else
+						t1=0; 
+					if(t2>85)
+						t2=255;
+					else
+						t2=0;
+				}
+
+				if(a==8){
+					if(t>97)
+						t=255;
+					else if(t<70)
+						t=255;
+					else
+						t=128;
+					if(t1>110)
+						t1=255;
+					else if(t1<70)
+						t1=255;
+					else
+						t1=128;
+					if(t2>110)
+						t2=255;
+					else if(t2<70)
+						t2=255;
+					else
+						t2=128; 
+				}
+
+				if ( t == 0 && t1 == 0  && t2 == 255 && a==1){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==1)
+					dst->imageData[ i*dst->width+j ]=0;//取紅色
+
+				if ( t == 255 && t1 == 0  && t2 == 0 && a==2 ){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==2)
+					dst->imageData[ i*dst->width+j ]=0;//取藍色
+
+				if ( t == 0 && t1 == 255  && t2 == 0 && a==3 ){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==3)
+					dst->imageData[ i*dst->width+j ]=0;//取綠色
+
+				if ( t == 0 && t1 == 0  && t2 == 0 && a==4 ){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==4)
+					dst->imageData[ i*dst->width+j ]=0;//取黑色
+
+				if ( t > 200 && t1 > 200  && t2 < 10 && a==5 ){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==5)
+					dst->imageData[ i*dst->width+j ]=0;//取青色
+
+				if ( t > 128 && t1 < 10  && t2 > 200 && a==6 ){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==6)
+					dst->imageData[ i*dst->width+j ]=0;//取紫色
+
+				if ( t < 10 && t1 > 200  && t2 > 200 && a==7 ){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==7)
+					dst->imageData[ i*dst->width+j ]=0;//取黃色
+
+				if ( t == 128 && t1 == 128  && t2 == 128 && a==8 ){
+					dst->imageData[ i*dst->width+j ] =255;
+				}
+				else if(a==8)
+					dst->imageData[ i*dst->width+j ]=0;//取灰色
+
+		}
+	  }
+	}
+
+	cvErode(dst,dst,0,1);
+	cvDilate(dst,dst,0,1);
+}
+void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
+{
+	int edgeThresh = 50;
+    IplImage *image;
+    int IW1;
+    int IL1;
+    int vertex1X1=0;
+    int vertex1Y1=0;
+    int a=0;
+    int vertex1X2=0;
+    int vertex1Y2=0;
+    int vertex1X3=0;
+    int vertex1Y3=0;
+	double center1X=0;
+    double center1Y=0;
+	double realmoveX=0;
+	double realmoveY=0;
+	double sidelength1=0;
+	double scalevalue=0;
+   
+    image = cvCreateImage(cvSize(dst->width,dst->height),IPL_DEPTH_8U,1);
+	cvDilate(dst,image,0,1);
+	cvErode(image,image,0,1);
+    cvThreshold(image,image,200,255,CV_THRESH_BINARY);
+    cvCanny(image, image, edgeThresh, edgeThresh*3, 3);
+	
+	
+	IW1=image->height;
+	IL1=image->width;
+    unsigned char **firstpicture = new unsigned char *[IW1];
+    
+	for(int i = 0 ; i< IW1 ; i++)
+		firstpicture[i] = new unsigned char [IL1];
+	for(int i = 0 ; i< IW1 ; i++)
+	  for(int j = 0 ; j < IL1 ; j++)
+		firstpicture[i][j] = (unsigned char) image->imageData[i*IL1+j];//讀取第一張圖片的陣列
+
+	for(int i = 0 ; i< IW1 ; i++)
+		for(int j = 0 ; j < IL1 ; j++){
+			if((unsigned int)firstpicture[i][j] == 255 && a == 0){
+				vertex1X1=j;
+				vertex1Y1=i;
+				a=1;
+			}
+		}
+		
+	for(int j = 0 ; j < IL1 ; j++)
+		for(int i = 0 ; i < IW1 ; i++){ 
+			if((unsigned int)firstpicture[i][j] == 255 && a == 1){
+				vertex1X2=j;
+				vertex1Y2=i;
+				a=2;
+			}
+		}
+	for(int j = IL1-1 ; j > 0 ; j--)
+		for(int i = IW1-1 ; i > 0 ; i--){
+			if((unsigned int)firstpicture[i][j] == 255 && a == 2){
+				vertex1X3=j;
+				vertex1Y3=i;
+				a=3;
+			}
+
+		}
+
+	double side1 = sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
+	double side2 = sqrt(pow(double(vertex1X3-vertex1X1),2)+pow(double(vertex1Y3-vertex1Y1),2));
+	double side3 = sqrt(pow(double(vertex1X1-vertex1X2),2)+pow(double(vertex1Y1-vertex1Y2),2));
+	cout << choose << "  " << side1 << "  " <<  side2 << "  " << side3 << "  \n";
+	if((side1-side2)<10 && (side1-side2)>-10 && (side2-side3)>-10 && (side2-side3)<10 && (side1-side3)>-10 && (side1-side2)<10 && side1>50 && side2>50 && side3>50)
+	{  
+        sidelength1 =  sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
+	    if(choose==3 || choose==4 || choose==7 || choose==8)
+		scalevalue = 15;
+		else 
+		scalevalue = 8;
+
+		center1X = (vertex1X1+vertex1X2+vertex1X3)/3;
+		center1Y = (vertex1Y1+vertex1Y2+vertex1Y3)/3;
+		realmoveX=(IL1/2-center1X)/(sidelength1/scalevalue); 
+		realmoveY=(IW1/2-center1Y)/(sidelength1/scalevalue);
+		//cout << choose << ":\n";
+		//cout << side1 << "      " << side2 << "     " << side3 << "\n";
+		//cout << "重心:" << center1X << "," << center1Y << "\n"; 
+
+
+	
+        *x=realmoveX;
+        *y=realmoveY;
+		*side=side1;
+	}
+	else
+	{
+		*x=0;
+		*y=0;
+		*side=0;
+	}
+   
+    for(int i=0; i<IW1 ;i++)
+		delete firstpicture[i];
+	delete firstpicture;
+}
