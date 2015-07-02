@@ -8,21 +8,25 @@
 using namespace std;
     
 	
-int c=0;
+int c=0;//用在鏡頭到感光元件距離 只讓他做一次
+int onlyone=0;//用在位置補償 只用一次
 double sideofimage=0;//鏡頭到感光原件距離
+double Xcompensation=0;//x位置補償量
+double Ycompensation=0;//y位置補償量
 void separation2(IplImage *, IplImage *,int);
-void judeg(IplImage *,double *,double *,double * ,int);
 void imagedepth(double ,double *,int);
 void calculate(double ,double *, int, double);
 void usehsv(IplImage *, IplImage *);
+void linearcompensation(IplImage *, double * , double * , double *, int);
 int main()
 {   
 	int IW;
     int IL;
 	int choose=1;//選擇顏色
-	int correctchoose=1;//選擇需要顏色
+	int correctchoose=0;//選擇需要顏色
 	double x,y,z;//實際移動值
 	double side[9]={0};//邊長儲存
+	double sidemax=0;
 //=======絕對座標========
 	double GreenX=20.4853;
 	double GreenY=24.9197;
@@ -44,49 +48,61 @@ int main()
 	IplImage *Img;
 	IplImage *dst;
 	IplImage *dst1;
-	Img = cvLoadImage("1.jpg",1); 
+	Img = cvLoadImage("0_5_10.jpg",1); 
 	IW = Img->height;
     IL = Img->width;
-    dst= cvCreateImage( cvSize(IL ,IW) , 8, 3 );
-	dst1= cvCreateImage( cvSize(IL ,IW) , 8, 1 );
-	
-	
-	for(int i=0; i<8;i++){
-		if(choose!=8 && choose!=4)
+    dst= cvCreateImage( cvSize(IL ,IW) , 8, 3 ); //創造圖片儲存空間三通道 
+	dst1= cvCreateImage( cvSize(IL ,IW) , 8, 1 ); //創造圖片儲存空間單通道
+
+	for(int i=0; i<8;i++){  //將每個顏色都找過一遍
+	 if(correctchoose!=1){  //當確定黑色可以判定則停止尋找顏色
+		if(choose!=8 && choose!=1) //當找到顏色是黑色和灰色時，不使用hsv做判斷
 	    {
 	      usehsv(Img,dst);
           separation2(dst,dst1,choose);	  
 	    }
-	    else
+	    else                       //當找到顏色是黑色和灰色時，直接做判斷
 	      separation2(Img,dst1,choose);
 
-  		judeg(dst1,&x,&y,&side[i],choose);//找重心
-		//cout << "side: " <<  side[i] << "    ";
-	if( side[i] > side[i-1] )
-	  {
-	     correctchoose=choose;
-	  }
-	  choose++;
+  		linearcompensation(dst1,&x,&y,&side[i],choose);//找重心，並且做邊長補償
+
+	    if( side[i] > side[i-1] && side[i] > sidemax) //判斷最長的邊，並記錄在correctchoose裡
+	    {
+           sidemax=side[i];
+	       correctchoose=choose;
+	    }
+	    choose++;
+	 }
+	 else
+		 choose++;
 	}
+
 	cout << "correctchoose:" << correctchoose  << "\n";
-	if(correctchoose!=8 && correctchoose!=4){
+	if(correctchoose!=8 && correctchoose!=1){ //做correctchoose所指的顏色
 	    usehsv(Img,dst);
         separation2(dst,dst1,correctchoose);
 	}
 	else
 		separation2(Img,dst1,correctchoose);
-	if(c==0)
+	if(c==0) //只找一次並記錄感光元件到鏡頭的距離sideofimage
 	{
 	imagedepth(side[correctchoose-1],&sideofimage,correctchoose);//找Z的深度
 	c++;
 	}
+	//cvSaveImage("ddddddd.jpg",dst1);
+	
 	cout << "邊長:" << side[correctchoose-1] << "\n";
 	cout << "影象深度:"  <<  sideofimage << " \n" ;
-	judeg(dst1,&x,&y,&side[correctchoose-1],correctchoose);//找X和Y
-	/*if(correctchoose==1)
+	linearcompensation(dst1,&x,&y,&side[correctchoose-1],correctchoose);//找X和Y的重心
+	if(correctchoose==1) //找出絕對位置，也就是鏡像中心和重心的差
 	{
-		x=RedX+x;
-		y=RedY+y;
+		x=BlackX+x;
+		y=BlackY+y;
+		if(onlyone==0){  //紀錄x與y需要的位置補償量
+		   Xcompensation = x;
+		   Ycompensation = y;
+		   onlyone++;
+		}
 	}
 	else if(correctchoose==2)
 	{
@@ -100,8 +116,8 @@ int main()
 	}
 	else if(correctchoose==4)
 	{
-		x=BlackX+x;
-		y=BlackY+y;
+		x=RedX+x;
+		y=RedY+y;
 	}
 	else if(correctchoose==5)
 	{
@@ -127,17 +143,17 @@ int main()
 	{
 		x=0;
 		y=0;
-	}*/
-	//sideofimage=344.5;
-	//calculate(sideofimage,&z,correctchoose,side[correctchoose-1]);//算出Z的變化量
-	//cout << correctchoose << "\n";
-	//cout << "x:" << x << "    y:" << y  << "     z:" << z;
+	}
+	//sideofimage=812.864;
+	calculate(sideofimage,&z,correctchoose,side[correctchoose-1]);//算出Z的變化量
+	cout << "x: " << x << "  y: "  << y << "  z:  " << z << "\n";
+	cout << "x:" << x-58.7154 << "    y:" <<  y-45.494  << "     z:" << z;
     cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
 	cvShowImage("Picture1",dst1); //顯示影像(視窗名稱,影像檔案) 
 	cvWaitKey(0);
 	system ("pause");
 }
-void usehsv(IplImage *src ,IplImage *dst)
+void usehsv(IplImage *src ,IplImage *dst)  
 {
 	int IW;
     int IL;
@@ -146,7 +162,7 @@ void usehsv(IplImage *src ,IplImage *dst)
 	IplImage *hsv;
 	hsv = cvCreateImage( cvSize(IL,IW) , 8, 3 );
 
-	cvCvtColor( src, hsv, CV_BGR2HSV ); 
+	cvCvtColor( src, hsv, CV_BGR2HSV );  //RGB轉hsv
 	IplImage* h_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
 	IplImage* s_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
 	IplImage* v_space =cvCreateImage(cvGetSize(src),IPL_DEPTH_8U,1);
@@ -164,7 +180,7 @@ void usehsv(IplImage *src ,IplImage *dst)
 			int t2= v;
 
 			if(t1>43)
-				s_space->imageData[ i*s_space->width+j ] = 255;
+				s_space->imageData[ i*s_space->width+j ] = 255;//調整色彩飽和度
 			else
 				s_space->imageData[ i*s_space->width+j ] = 0;
 
@@ -176,29 +192,16 @@ void usehsv(IplImage *src ,IplImage *dst)
 
 
     IplImage* shsv =cvCreateImage(cvGetSize(src),src->depth,3);
-    
-	//IplImage* image_1 =cvCreateImage(cvGetSize(src),src->depth,3);
-	cvMerge(h_space,s_space,v_space,NULL,shsv);
-
-	cvCvtColor( shsv, dst, CV_HSV2BGR );
-	//cvNamedWindow("Picture1",1); //建立視窗(視窗名稱,參數) 
-	//cvShowImage("Picture1",dst); //顯示影像(視窗名稱,影像檔案) 
-	//cvWaitKey(0);
-	//dst = image_1;
-	//cvShowImage("output",image_1);
-
-	//cvWaitKey(0);
-
-	//cvReleaseImage(&image_1);
-	//cvDestroyWindow("output");
+	cvMerge(h_space,s_space,v_space,NULL,shsv); //通道合併
+	cvCvtColor( shsv, dst, CV_HSV2BGR ); //hsv轉回RGB
 }
 void calculate(double imagedistance,double *z ,int choose,double sidelength1)
 {
 	double realmoveZ=0;
-	double realobjectdistance = 34;
-    double realobjectdistance1 = 34;
-	int scalevalue=0;
-	if(choose==3 || choose==4 || choose==7 || choose==8)
+	double realobjectdistance = 34;//原來遮罩距離機台長度(cm)
+    double realobjectdistance1 = 0;//後來偵測的長度(cm)
+	int scalevalue=0; //實際三角形長度
+	if(choose==3 || choose==1 || choose==7 || choose==8)
 		scalevalue = 15;
 		else 
 		scalevalue = 8;
@@ -212,27 +215,17 @@ void imagedepth(double sidelength, double *sideofimage,int choose)
 	double realobjectdistance = 34;
 	int scalevalue=0;
 	
-	if(choose==3 || choose==4 || choose==7 || choose==8)
+	if(choose==3 || choose==1 || choose==7 || choose==8)
 		scalevalue=15;
 	else
 		scalevalue=8;
 	*sideofimage=realobjectdistance*sidelength/scalevalue;
 }
 void separation2(IplImage *src, IplImage *dst, int a){
-  //陣列方式宣告
-	//unsigned char** R = new unsigned char *[src->height];	
-	//unsigned char** G = new unsigned char *[src->height];
-	//unsigned char** B = new unsigned char *[src->height];
-	//for( int i = 0 ; i < src->height ; i++ ){
-	//	R[i] = new unsigned char[src->width];
-	//	G[i] = new unsigned char[src->width];
-	//	B[i] = new unsigned char[src->width];
-	//}
-//指標方式宣告
 	IplImage *R = cvCreateImage(cvGetSize(src),8,1);
 	IplImage *G = cvCreateImage(cvGetSize(src),8,1);
 	IplImage *B = cvCreateImage(cvGetSize(src),8,1);
-	for( int i=0 ; i<src->height ; i++ ){
+	for( int i=0 ; i<src->height ; i++ ){ //分為RGB三通道
 		int countR=0,countG=0,countB=0;
 		for ( int j=0; j<src->widthStep ; j++ ){
 			if	( j%3==2 ){
@@ -250,85 +243,74 @@ void separation2(IplImage *src, IplImage *dst, int a){
 		}
 	}
 
-//RGB矩陣測試
-	//for( int i=0 ; i<src->height ; i++ ){
-	//	for(int j=0 ; j<src->width ; j++){
-	//		unsigned char temp=B->imageData[i*B->width+j];
-	//		unsigned char temp1=G->imageData[i*G->width+j];
-	//		unsigned char temp2=R->imageData[i*R->width+j];
-	//		int t = temp;
-	//		int t1=temp1;
-	//		int t2=temp2;
-	//	}
-	//}
 	for( int i=0 ; i<dst->height ; i++ ){
 		for( int j=0 ; j< dst->width ; j++ ){
 			for(int k=0 ; k<3 ; k++){
-				unsigned char temp=B->imageData[i*B->width+j];
+				unsigned char temp =B->imageData[i*B->width+j];
 				unsigned char temp1=G->imageData[i*G->width+j];
 				unsigned char temp2=R->imageData[i*R->width+j];
 				int t=temp;
 				int t1=temp1;
 				int t2=temp2;
-				//cout << t << "  ";
-				if(a==1 || a==2 || a==3 || a==4){
-					if(t>85)
+
+			    if(a==1){
+					if(t>50)
 						t=255;
 					else
 						t=0;
-					if(t1>85)
+					if(t1>50)
 						t1=255; 
 					else
 						t1=0; 
-					if(t2>85)
+					if(t2>50)
 						t2=255;
 					else
 						t2=0;
 				}
-			
+
 				if(a==8){
-					if(t>97)
+					if(t>110)
 						t=255;
-					else if(t<70)
+					else if(t<90)
 						t=255;
 					else
 						t=128;
 					if(t1>110)
 						t1=255;
-					else if(t1<70)
+					else if(t1<90)
 						t1=255;
 					else
 						t1=128;
 					if(t2>110)
 						t2=255;
-					else if(t2<70)
+					else if(t2<90)
 						t2=255;
 					else
 						t2=128; 
 				}
 
-				if ( t == 0 && t1 == 0  && t2 == 255 && a==1){
+				if ( t < 50 && t1 < 120  && t2 > 210 && a==4){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
-				else if(a==1)
+				else if(a==4)
 					dst->imageData[ i*dst->width+j ]=0;//取紅色
 
-				if ( t == 255 && t1 == 0  && t2 == 0 && a==2 ){
+				if ( t > 240 && t1 < 110  && t2 < 50 && a==2 ){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
 				else if(a==2)
 					dst->imageData[ i*dst->width+j ]=0;//取藍色
 
-				if ( t == 0 && t1 == 255  && t2 == 0 && a==3 ){
+				if ( t < 50 && t1 > 240  && t2 < 165 && a==3 ){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
 				else if(a==3)
 					dst->imageData[ i*dst->width+j ]=0;//取綠色
 
-				if ( t == 0 && t1 == 0  && t2 == 0 && a==4 ){
+				if ( t == 0 && t1 == 0  && t2 == 0 && a==1 ){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
-				else if(a==4)
+				else if(a==1)
 					dst->imageData[ i*dst->width+j ]=0;//取黑色
 
 				if ( t > 200 && t1 > 200  && t2 < 10 && a==5 ){
@@ -343,7 +325,7 @@ void separation2(IplImage *src, IplImage *dst, int a){
 				else if(a==6)
 					dst->imageData[ i*dst->width+j ]=0;//取紫色
 
-				if ( t < 10 && t1 > 200  && t2 > 200 && a==7 ){
+				if ( t < 10 && t1 > 220  && t2 > 210 && a==7 ){
 					dst->imageData[ i*dst->width+j ] =255;
 				}
 				else if(a==7)
@@ -359,22 +341,28 @@ void separation2(IplImage *src, IplImage *dst, int a){
 	  }
 	}
 
-	cvErode(dst,dst,0,3);
-	cvDilate(dst,dst,0,3);
+	cvErode(dst,dst,0,1); //侵蝕
+	cvDilate(dst,dst,0,1); //膨脹
 }
-void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
+void linearcompensation(IplImage *dst, double *x , double *y , double *side, int choose)
 {
 	int edgeThresh = 50;
     IplImage *image;
     int IW1;
     int IL1;
+    int a=0;
     int vertex1X1=0;
     int vertex1Y1=0;
-    int a=0;
+	int vertex2X1=0;
+    int vertex2Y1=0;
     int vertex1X2=0;
     int vertex1Y2=0;
+	int vertex2X2=0;
+    int vertex2Y2=0;
     int vertex1X3=0;
     int vertex1Y3=0;
+	int vertex2X3=0;
+    int vertex2Y3=0;
 	double center1X=0;
     double center1Y=0;
 	double realmoveX=0;
@@ -383,23 +371,23 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 	double scalevalue=0;
    
     image = cvCreateImage(cvSize(dst->width,dst->height),IPL_DEPTH_8U,1);
-	cvDilate(dst,image,0,1);
-	cvErode(image,image,0,1);
-    cvThreshold(image,image,200,255,CV_THRESH_BINARY);
-    cvCanny(image, image, edgeThresh, edgeThresh*3, 3);
+	cvDilate(dst,image,0,1); //膨脹
+	cvErode(image,image,0,1); //侵蝕
+    cvThreshold(image,image,200,255,CV_THRESH_BINARY); //二值化
+    cvCanny(image, image, edgeThresh, edgeThresh*3, 3); //取邊緣
 	
 	
 	IW1=image->height;
 	IL1=image->width;
     unsigned char **firstpicture = new unsigned char *[IW1];
     
-	for(int i = 0 ; i< IW1 ; i++)
+	for(int i = 0 ; i < IW1 ; i++)
 		firstpicture[i] = new unsigned char [IL1];
-	for(int i = 0 ; i< IW1 ; i++)
+	for(int i = 0 ; i < IW1 ; i++)
 	  for(int j = 0 ; j < IL1 ; j++)
 		firstpicture[i][j] = (unsigned char) image->imageData[i*IL1+j];//讀取第一張圖片的陣列
 
-	for(int i = 0 ; i< IW1 ; i++)
+	for(int i = 0 ; i < IW1 ; i++)  //找出三角形第一條邊最上面的點
 		for(int j = 0 ; j < IL1 ; j++){
 			if((unsigned int)firstpicture[i][j] == 255 && a == 0){
 				vertex1X1=j;
@@ -407,48 +395,129 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 				a=1;
 			}
 		}
-	for(int i = IW1-1 ; i > 0 ; i--)
-		for(int j = 0 ; j < IL1 ; j++){ 
+	for(int j = 0 ; j < IL1 ; j++)  //找出三角形第一條邊最下面的點
+		for(int i = 0 ; i < IW1 ; i++){
 			if((unsigned int)firstpicture[i][j] == 255 && a == 1){
-				vertex1X2=j;
-				vertex1Y2=i;
+				vertex2X1=j;
+				vertex2Y1=i;
 				a=2;
 			}
 		}
-	for(int j = IL1-1 ; j > 0 ; j--)
+	for(int j = 0 ; j < IL1 ; j++)  //找出三角形第二條邊最左邊的點
 		for(int i = IW1-1 ; i > 0 ; i--){
 			if((unsigned int)firstpicture[i][j] == 255 && a == 2){
-				vertex1X3=j;
-				vertex1Y3=i;
+				vertex1X2=j;
+				vertex1Y2=i;
 				a=3;
 			}
-
 		}
-	double side1 = sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
-	double side2 = sqrt(pow(double(vertex1X3-vertex1X1),2)+pow(double(vertex1Y3-vertex1Y1),2));
-	double side3 = sqrt(pow(double(vertex1X1-vertex1X2),2)+pow(double(vertex1Y1-vertex1Y2),2));
+	for(int j = IL1-1 ; j > 0 ; j--)  //找出三角形第二條邊最右邊的點
+		for(int i = IW1-1 ; i > 0 ; i--){
+			if((unsigned int)firstpicture[i][j] == 255 && a == 3){
+				vertex2X2=j;
+				vertex2Y2=i;
+				a=4;
+			}
+		}
+	for(int i = 0 ; i < IW1 ; i++) //找出三角形第三條邊最上面的點
+		for(int j = IL1-1 ; j > 0 ; j--){
+			if((unsigned int)firstpicture[i][j] == 255 && a == 4){
+				vertex1X3=j;
+				vertex1Y3=i;
+				a=5;
+			}
+		}
+    for(int j = IL1-1 ; j > 0 ; j--) //找出三角形第三條邊最下面的點
+		for(int i = 0 ; i < IW1 ; i++){
+			if((unsigned int)firstpicture[i][j] == 255 && a == 5){
+				vertex2X3=j;
+				vertex2Y3=i;
+				a=6;
+			}
+		} 
+		//cout << vertex1X1 << "," << vertex1Y1 << "\n";
+		//cout << vertex2X1 << "," << vertex2Y1 << "\n";
+		//cout << vertex1X2 << "," << vertex1Y2 << "\n";
+		//cout << vertex2X2 << "," << vertex2Y2 << "\n";
+		//cout << vertex1X3 << "," << vertex1Y3 << "\n";
+		//cout << vertex2X3 << "," << vertex2Y3 << "\n";
+    int a1=vertex2Y1-vertex1Y1;   //a1x+b1y+c1=0
+	int b1=vertex1X1-vertex2X1;
+	int c1=(vertex1Y1-vertex2Y1)*vertex1X1+(vertex2X1-vertex1X1)*vertex1Y1; //第一條邊的方程式
+	int a2=vertex2Y2-vertex1Y2;   //a2x+b2y+c2=0
+	int b2=vertex1X2-vertex2X2;
+	int c2=(vertex1Y2-vertex2Y2)*vertex1X2+(vertex2X2-vertex1X2)*vertex1Y2; //第二條邊的方程式
+	int a3=vertex2Y3-vertex1Y3;   //a3x+b3y+c3=0;
+	int b3=vertex1X3-vertex2X3;
+	int c3=(vertex1Y3-vertex2Y3)*vertex1X3+(vertex2X3-vertex1X3)*vertex1Y3; //第三條邊的方程式
+	double x1=0;   
+	double y1=0;   //一 二條邊的交點
+	double x2=0;
+	double y2=0;   //三 二條邊的交點
+	double x3=0;
+	double y3=0;   //一 三條邊的交點
+	double angle1=(a1*a2+b1*b2)/(sqrt(pow(double(a1),2)+pow(double(b1),2))*sqrt(pow(double(a2),2)+pow(double(b2),2)));
+	double angle2=(a1*a3+b1*b3)/(sqrt(pow(double(a1),2)+pow(double(b1),2))*sqrt(pow(double(a3),2)+pow(double(b3),2)));
+	double angle3=(a3*a2+b3*b2)/(sqrt(pow(double(a3),2)+pow(double(b3),2))*sqrt(pow(double(a2),2)+pow(double(b2),2)));
+	angle1 = acos(angle1)*180/3.14;
+	angle2 = acos(angle2)*180/3.14;
+	angle3 = acos(angle3)*180/3.14;
+	if(angle1 > 90)
+		angle1 = 180 - angle1;
+	if(angle2 > 90)
+		angle2 = 180 - angle2;
+	if(angle3 > 90)
+		angle3 = 180 - angle3;
+	cout << "angle1: " << angle1 << "  angle2:  " << angle2 << "  angle3:  " << angle3 << "\n";
+	if(a1*b2==b1*a2 || a2*b3==b2*a3 || a1*b3==b1*a3){
+		x1=0;
+		y1=0;
+		x2=0;
+		y2=0;
+		x3=0;
+		y3=0;
+	}
+	else{
+		x1 = (b1*c2-b2*c1)/(a1*b2-b1*a2);
+		y1 = (a1*c2-a2*c1)/(b1*a2-a1*b2);
+		x2 = (b1*c3-b3*c1)/(a1*b3-b1*a3);
+		y2 = (a1*c3-a3*c1)/(b1*a3-a1*b3);
+		x3 = (b2*c3-b3*c2)/(a2*b3-b2*a3);
+		y3 = (a2*c3-a3*c2)/(b2*a3-a2*b3);
+	}
+	cout << x1 << "," <<  y1 << "\n" << x2 << "," <<  y2 << "\n" << x3 << "," <<  y3 << "\n";
+	double side1 = sqrt(pow(double(x3-x2),2)+pow(double(y3-y2),2));  //第一條邊長
+	double side2 = sqrt(pow(double(x3-x1),2)+pow(double(y3-y1),2));  //第二條邊長
+	double side3 = sqrt(pow(double(x1-x2),2)+pow(double(y1-y2),2));  //第三條邊長
 	cout << choose << "  " << side1 << "  " <<  side2 << "  " << side3 << "  \n";
-	if((side1-side2)<10 && (side1-side2)>-10 && (side2-side3)>-10 && (side2-side3)<10 && (side1-side3)>-10 && (side1-side2)<10)
-	{  
-        sidelength1 =  sqrt(pow(double(vertex1X3-vertex1X2),2)+pow(double(vertex1Y3-vertex1Y2),2));
-	    if(choose==3 || choose==4 || choose==7 || choose==8)
+	if((side1-side2)<50 && (side1-side2)>-50 && (side2-side3)>-50 && (side2-side3)<50 && (side1-side3)>-50 && (side1-side3)<50 && side1>50 && side2>50 && side3>50 && angle1< 67 && angle2 < 67 && angle3 < 67 && angle1>56 && angle2>56 && angle3>56)
+	{    //判斷是否為正三角形和三角形的合理性
+		if(choose==3 && vertex1X1>400){
+			*x=0;
+		    *y=0;
+		    *side=0;
+		}
+		else if(vertex2Y2==479){
+		    *x=0;
+		    *y=0;
+		    *side=0;
+		}
+		else{
+        sidelength1 =  (side1+side2+side3)/3;
+	    if(choose==3 || choose==1 || choose==7 || choose==8)
 		scalevalue = 15;
 		else 
 		scalevalue = 8;
 
-		center1X = (vertex1X1+vertex1X2+vertex1X3)/3;
-		center1Y = (vertex1Y1+vertex1Y2+vertex1Y3)/3;
-		realmoveX=(IL1/2-center1X)/(sidelength1/scalevalue); 
+		center1X = (x1+x2+x3)/3; //三角形的重心
+		center1Y = (y1+y2+y3)/3;
+		realmoveX=(IL1/2-center1X)/(sidelength1/scalevalue);   //實際距離
 		realmoveY=(IW1/2-center1Y)/(sidelength1/scalevalue);
-		//cout << choose << ":\n";
-		//cout << side1 << "      " << side2 << "     " << side3 << "\n";
-		//cout << "重心:" << center1X << "," << center1Y << "\n"; 
 
-
-	
-        *x=realmoveX;
+	    *x=realmoveX;
         *y=realmoveY;
 		*side=side1;
+		}
 	}
 	else
 	{
@@ -461,3 +530,4 @@ void judeg(IplImage *dst, double *x , double *y , double *side, int choose)
 		delete firstpicture[i];
 	delete firstpicture;
 }
+
