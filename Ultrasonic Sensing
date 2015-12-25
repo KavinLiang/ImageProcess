@@ -1,0 +1,26 @@
+const int trig =  8; //define Arduino pin
+const int echo =  9;
+
+void setup() {
+	Serial.begin(9600); //set baud rate of Serial Monitor
+	pinMode(trig, OUTPUT); //set trigger pin to OUTPUT (-> pin trig of Ultrasonic Sensor)
+	pinMode(echo, INPUT); //set echo pin to INPUT (-> pin echo of Ultrasonic Sensor)
+	Serial.println("Start!!!");
+}
+
+void loop() {
+	float duration; //duration to record the time of every back and forth 
+	float distance; 
+	digitalWrite(trig, HIGH); //trigger sona for 1 ms
+	delayMicroseconds(1000); 
+	digitalWrite(trig, LOW);
+	duration = pulseIn(echo, HIGH); 
+	//use pulseIn() function to get the time of pin echo from HIGH to LOW, unit=microseconds
+	distance = (duration / 2) * 0.034;
+	//distance = ( half of time of back and forth )x( wave velocity(use 0.034 cm per microsecond) )
+	
+	Serial.print("Distance ="); //show result on Serial Monitor
+	Serial.print(distance);
+	Serial.println("cm");
+	delay(1000);
+}
